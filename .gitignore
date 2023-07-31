@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local development environment (virtualenv)
+venv/
+env/
+
+# Environment variables file
+.env
+
+# IDE and editor-specific files
+.idea/
+.vscode/
+
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and other generated files
+*.log
+logs/
+
+# FastAPI generated files (e.g., OpenAPI schema)
+openapi.json
+
+# Dependency directories
+node_modules/
+bower_components/
+
+# Mac OS specific files
+.DS_Store
+
+# Temporary files
+*.tmp
+
+# Cache files
+.cache/
+
+# Coverage reports
+.coverage
+
+# Compiled translations
+locale/
+
+# Other generated files
+dist/
+build/
+*.egg-info/
