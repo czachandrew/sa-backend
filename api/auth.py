@@ -221,6 +221,11 @@ async def generate_partner_token(
     return {"access_token": token, "token_type": "bearer"}
 
 
+@router.get("/testheroku/")
+async def test_heroku():
+    return {"message": "Hello from Heroku"}
+
+
 @router.post("/register/")
 async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(UserModel).filter(UserModel.email == user.email).first()
