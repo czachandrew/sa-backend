@@ -40,6 +40,7 @@ class TokenData(BaseModel):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
 
 
@@ -175,6 +176,9 @@ async def login(payload: LoginPayload, db: Session = Depends(get_db)):
 
     access_token = create_access_token(data={"sub": user.email})
     refresh_token = create_refresh_token(data={"sub": user.email})
+    print("here are the access and refresh tokens")
+    print(access_token)
+    print(refresh_token)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,

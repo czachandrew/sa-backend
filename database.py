@@ -10,6 +10,7 @@ load_dotenv()
 
 
 class Item(BaseModel):
+    id: int
     upc: str
     description: str | None = None
     price: float
