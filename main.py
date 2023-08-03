@@ -16,6 +16,8 @@ app.add_middleware(
         "http://localhost:8000",
         "http://localhost:5173",
         "https://serene-parfait-5f4de1.netlify.app",
+        "https://computersintl.com",
+        "http://computersintl.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
