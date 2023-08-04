@@ -19,6 +19,7 @@ class Inventory(Base):
     manufacturer = Column(String, nullable=True)
     category = Column(String, nullable=True)
     condition = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="good")
 
     order_items = relationship("OrderItem", back_populates="product")
 

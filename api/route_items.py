@@ -96,6 +96,27 @@ async def create_item(item: Item, db: Session = Depends(get_db)):
     return item
 
 
+def make_item(item_dict: dict, markup: float, db: Session = Depends(get_db)):
+    print("here is the thing passed to me")
+    print(item_dict)
+    markup_price = round(
+        item_dict["Price Rebate applied"] * (1 + (float(markup) / 100)), 2
+    )
+    new_inventory = Inventory(
+        upc=item_dict["UPC"],
+        description=item_dict["Long Description"],
+        price=markup_price,
+        in_stock=item_dict["In Stock"],
+        on_order=item_dict["On Order"],
+        mfr_part=item_dict["MFG Part#"],
+        manufacturer=item_dict["MFR"],
+        category=item_dict["Product Category"],
+        condition=item_dict["Condition"],
+    )
+
+    return new_inventory
+
+
 def create_items(items: List[SourceItem], db: Session, markup: float):
     print("here is the thing passed to me")
     new_items = []
@@ -136,23 +157,15 @@ async def create_upload_file(
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
-    # body = await request.body()
-    # print(body)
-    print("here is the markup")
-    print(markup)
-    # print("here is the file")
-    # print(file.filename for file in files)
-    db.query(Inventory).delete()
-    db.commit()
-    # first we should drop the entire database and recreate it
-    for file in files:
-        try:
+    try:
+        for file in files:
             extension = file.filename.split(".")[-1] in ("xlsx", "xls", "xlsm")
             if not extension:
                 return JSONResponse(
                     status_code=HTTP_422_UNPROCESSABLE_ENTITY,
                     content="Invalid file type",
                 )
+
             df = pd.read_excel(
                 io.BytesIO(file.file.read()),
                 engine="openpyxl",
@@ -160,11 +173,36 @@ async def create_upload_file(
                 dtype={"UPC": "str", "Rebate": "str"},
             )
 
-            # for index, row in df.iterrows():
-            #     create_an_item(row, db)
+            # get all inventory UPC codes in a dictionary
+            existing_inventory = {item.upc: item for item in db.query(Inventory).all()}
+            uploaded_upc_codes = set()
+            new_items = []
 
-            create_items(df.to_dict(orient="records"), db, markup)
+            for record in df.to_dict(orient="records"):
+                print(record)
+                uploaded_upc_codes.add(record["UPC"])
+                if record["UPC"] in existing_inventory:
+                    # if the UPC code exists in the inventory, update the in_stock and on_order fields
+                    existing_inventory[record["UPC"]].in_stock = record["In Stock"]
+                    existing_inventory[record["UPC"]].on_order = record["On Order"]
+                else:
+                    # if the UPC code does not exist in the inventory, create a new item and add to new_items list
+                    new_items.append(
+                        make_item(record, markup)
+                    )  # use a function that returns a new Inventory instance
 
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error {e}")
+            # bulk save the new items
+            if new_items:
+                db.bulk_save_objects(new_items)
+
+            # for each inventory item that was not in the uploaded file, update its status
+            for upc, item in existing_inventory.items():
+                if upc not in uploaded_upc_codes:
+                    item.status = "requires_verification"
+
+            db.commit()
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error {e}")
+
     return {"filenames": [file.filename for file in files]}
