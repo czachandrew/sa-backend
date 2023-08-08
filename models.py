@@ -50,7 +50,9 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     total = Column(Float, nullable=True)
-    items = relationship("OrderItem", back_populates="order")
+    items = relationship(
+        "OrderItem", back_populates="order", cascade="all, delete-orphan"
+    )
     user = relationship("User", back_populates="orders")
 
 
@@ -58,7 +60,9 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    order_id = Column(
+        Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=True
+    )
     inventory_id = Column(Integer, ForeignKey("inventory.id"), nullable=True)
     quantity = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
