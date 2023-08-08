@@ -26,7 +26,7 @@ async def read_item(item_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/list/")
-async def read_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def read_items(skip: int = 0, limit: int = 1000, db: Session = Depends(get_db)):
     db_items = db.query(Inventory).offset(skip).limit(limit).all()
     return db_items
 
