@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from typing import Any, Dict, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from models import User as UserModel
 from models import Partner
 from database import get_db
@@ -125,6 +125,7 @@ def create_refresh_token(
     data: Dict[str, Any], expires_delta: Optional[timedelta] = None
 ):
     to_encode = data.copy()
+    to_encode.update({"type": "refresh"})
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -134,28 +135,49 @@ def create_refresh_token(
     return encoded_jwt
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 @router.post("/token/refresh", response_model=Token)
-async def refresh_token(
-    refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+async def refresh_token(refresh_request: RefreshRequest, db: Session = Depends(get_db)):
+    refresh_token = refresh_request.refresh_token
+
+    def raise_exception(detail: str):
+        raise HTTPException(
+            status_code=401,
+            detail=detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            refresh_token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"verify_exp": True},
+        )
         email: str = payload.get("sub")
         if email is None:
-            raise credentials_exception
+            raise_exception("Email not found in token")
+
+        if payload.get("type") != "refresh":  # Check if token type is refresh
+            raise_exception("Invalid token type")
+
         token_data = TokenData(email=email)
     except JWTError:
-        raise credentials_exception
-    user = get_user(db, email=token_data.email)
+        raise_exception("Could not decode token")
+
+    user = await get_user(db, email=token_data.email)
     if user is None:
-        raise credentials_exception
+        raise_exception("User not found")
+
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post("/token", response_model=Token)
