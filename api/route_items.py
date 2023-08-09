@@ -96,6 +96,24 @@ async def create_item(item: Item, db: Session = Depends(get_db)):
     return item
 
 
+@router.post("/update/{item_id}/")
+def update_item(item_id: int, item: Item, db: Session = Depends(get_db)):
+    db_item = db.query(Inventory).filter(Inventory.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db_item.upc = item.upc
+    db_item.description = item.description
+    db_item.price = item.price
+    db_item.in_stock = item.in_stock
+    db_item.mfr_part = item.mfr_part
+    db_item.manufacturer = item.manufacturer
+    db_item.category = item.category
+    db_item.condition = item.condition
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
 def make_item(item_dict: dict, markup: float, db: Session = Depends(get_db)):
     print("here is the thing passed to me")
     print(item_dict)
