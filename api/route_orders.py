@@ -21,6 +21,7 @@ from datetime import datetime
 from database import Item
 import stripe
 import json
+import requests
 
 from mail import send_email
 
@@ -67,6 +68,30 @@ endpoint_secret = (
 )
 
 
+# async def send_email(to_email: str, subject: str, text: str):
+#     # Mailgun configuration
+#     domain = "mg.mainstreetprime.com"
+#     api_key = "key-b8c267cb318ce99efbd03477a911ccbd"
+#     sender_email = "tru@mg.mainstreetprime.com"
+
+#     # send the email
+#     response = requests.post(
+#         f"https://api.mailgun.net/v3/{domain}/messages",
+#         auth=("api", api_key),
+#         data={
+#             "from": f"Excited User <mailgun@{domain}>",
+#             "to": to_email,
+#             "subject": subject,
+#             "text": text,
+#         },
+#     )
+
+#     if response.status_code != 200:
+#         raise HTTPException(status_code=response.status_code, detail=response.text)
+
+#     return {"status": "Email sent successfully"}
+
+
 @router.post("/create/")
 async def create_order(
     order_items: List[CreateOrderItem],
@@ -102,7 +127,12 @@ async def create_order(
     newOrder.total = total
     db.commit()
     print(user)
-    send_email("andrewczachowski@me.com", "New Order Test", order_items, newOrder)
+    send_email(
+        ["andrewczachowski@me.com", "gavalex@mac.com", "todd@computersintl.com"],
+        "New Order Test",
+        order_items,
+        newOrder,
+    )
     return {"message": "Order endpoint accessed"}
 
 

@@ -2,16 +2,17 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from env import EmailConfig
+from typing import List
 
 
-def send_email(to_email, subject, data_list, order_info):
+def send_email(to_emails: List[str], subject, data_list, order_info):
     print(EmailConfig.SMTP_EMAIL)
     print(EmailConfig.SMTP_SERVER)
     print(EmailConfig.SMTP_PORT)
     print(EmailConfig.SMTP_PASSWORD)
     msg = MIMEMultipart()
     msg["From"] = EmailConfig.SMTP_EMAIL
-    msg["To"] = to_email
+    msg["To"] = ", ".join(to_emails)
     msg["Subject"] = subject
 
     body = (
@@ -50,5 +51,5 @@ def send_email(to_email, subject, data_list, order_info):
     # server.starttls()
     server.login(EmailConfig.SMTP_EMAIL, EmailConfig.SMTP_PASSWORD)
     text = msg.as_string()
-    server.sendmail(EmailConfig.SMTP_EMAIL, to_email, text)
+    server.sendmail(EmailConfig.SMTP_EMAIL, to_emails, text)
     server.quit()
