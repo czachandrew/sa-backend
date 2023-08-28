@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    Form,
+    UploadFile,
+    File,
+    Request,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from .auth import get_current_user
@@ -10,6 +19,8 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from database import Item
+import stripe
+import json
 
 from mail import send_email
 
@@ -18,6 +29,10 @@ router = APIRouter()
 
 class UserBase(BaseModel):
     email: str
+
+
+class SuccessResponse(BaseModel):
+    success: bool
 
 
 class OrderItemBase(BaseModel):
@@ -36,9 +51,20 @@ class OrderBase(BaseModel):
     status: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    payment_link: Optional[str] = None
     total: Optional[float] = None
     items: List[OrderItemBase] = []
     user: UserBase
+
+
+# The library needs to be configured with your account's secret key.
+# Ensure the key is kept out of any version control system you might be using.
+stripe.api_key = "sk_test_51H5GbkLXAFRviTEvEoyQiHYkHGFjF2FUIS3Kv2C3XzoOUoRCTjyF3fI4nBiPmlUwIRYaamAbwMDouXmXbSRSOLZT00jYE9SJ4T"
+
+# This is your Stripe CLI webhook secret for testing your endpoint locally.
+endpoint_secret = (
+    "whsec_e372be1f3db91ba5041ea3c67956e9b282cc805f17492f4af18466dafe929428"
+)
 
 
 @router.post("/create/")
@@ -106,6 +132,25 @@ async def get_orders_by_user(
     return orders
 
 
+@router.post("/update/{order_id}/", response_model=OrderBase)
+async def update_order(
+    order_id: int,
+    order: OrderBase,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_order = db.query(Order).filter(Order.id == order_id).first()
+    if db_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    db_order.status = order.status
+    db_order.payment_link = order.payment_link
+    if order.payment_link is not None:
+        db_order.status = "awaiting payment"
+    db.commit()
+    db.refresh(db_order)
+    return db_order
+
+
 @router.post("/add_item/{order_id}")
 async def add_item_to_order(
     order_item: CreateOrderItem,
@@ -127,6 +172,36 @@ async def add_item_to_order(
     db.commit()
     db.refresh(new_order_item)
     return new_order_item
+
+
+@router.post("/webhook/")
+async def webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers["stripe-signature"]
+    event = None
+
+    print(payload)
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Handle the event
+    if event["type"] == "payment_link.updated":
+        payment_link = event["data"]["object"]
+        pretty = json.dumps(event["data"], indent=4)
+        print(pretty)
+    # ... handle other event types
+    if event["type"] == "payment_intent.succeeded":
+        print("Got a successful payment")
+        pretty = json.dumps(event["data"], indent=4)
+        print(pretty)
+    else:
+        print("Unhandled event type {}".format(event["type"]))
+
+    return SuccessResponse(success=True)
 
 
 @router.get("/cancel/{order_id}/")

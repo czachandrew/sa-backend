@@ -50,6 +50,7 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     total = Column(Float, nullable=True)
+    payment_link = Column(String, nullable=True)
     items = relationship(
         "OrderItem", back_populates="order", cascade="all, delete-orphan"
     )
